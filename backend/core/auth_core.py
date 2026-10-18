@@ -4,9 +4,10 @@ import secrets
 from datetime import datetime, timedelta
 
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
