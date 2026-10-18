@@ -11,6 +11,7 @@ from backend.core.auth_core import (
     create_access_token,
     create_refresh_token,
     is_user,
+    refresh_token_lookup,
 )
 from backend.db.models.refresh_token_model import RefreshTokenModel
 from backend.db.models.user_model import UserModel
@@ -59,7 +60,7 @@ async def refresh_token(
     stmt = (
         select(RefreshTokenModel)
         .where(
-            RefreshTokenModel.token == form.refresh_token,
+            RefreshTokenModel.token.in_(refresh_token_lookup(form.refresh_token)),
             RefreshTokenModel.revoked.is_(False),
             RefreshTokenModel.expires_at > now(),
         )
@@ -96,7 +97,7 @@ async def logout(
     stmt = (
         select(RefreshTokenModel)
         .where(
-            RefreshTokenModel.token == form.refresh_token,
+            RefreshTokenModel.token.in_(refresh_token_lookup(form.refresh_token)),
             RefreshTokenModel.user_id == current_user.id,
             RefreshTokenModel.revoked.is_(False),
         )
