@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.core.auth_core import (
+    access_token_claims,
     authenticate_user,
     build_token_response,
     create_access_token,
@@ -39,7 +40,7 @@ async def login(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token, access_exp = create_access_token({"sub": user.username})
+    access_token, access_exp = create_access_token(access_token_claims(user))
     refresh_token = await create_refresh_token(
         user.id,
         session,
@@ -74,7 +75,7 @@ async def refresh_token(
     await session.commit()
 
     user = db_token.user
-    access_token, access_exp = create_access_token({"sub": user.username})
+    access_token, access_exp = create_access_token(access_token_claims(user))
     new_refresh = await create_refresh_token(
         user.id,
         session,

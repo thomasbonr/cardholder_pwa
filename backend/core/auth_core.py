@@ -1,6 +1,5 @@
 import secrets
 from datetime import datetime, timedelta
-from typing import cast
 
 import bcrypt
 from fastapi import Depends, HTTPException
@@ -55,6 +54,18 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
         algorithm=Config.JWT_ALGORITHM,
     )
     return encoded_jwt, expire
+
+
+def access_token_claims(user: UserModel) -> dict:
+    """What an access token says about its user.
+
+    The subject is the user id, which never changes. It used to be the
+    username, which the user can change: a token issued before a rename
+    then pointed to whoever took that name next. `uid` marks the new form,
+    so a legacy token whose username happens to look like a number is never
+    read as an id.
+    """
+    return {"sub": str(user.id), "uid": user.id}
 
 
 async def create_refresh_token(
@@ -116,12 +127,20 @@ async def is_user(
             Config.JWT_SECRET_KEY,
             algorithms=[Config.JWT_ALGORITHM],
         )
-        username: str = cast(str, payload.get("sub"))
-        if not username:
+        subject = payload.get("sub")
+        uid = payload.get("uid")
+        if not subject:
             raise credentials_exception
     except JWTError:
         raise credentials_exception from None
-    stmt = select(UserModel).where(UserModel.username == username).limit(1)
+    if uid is not None:
+        if not isinstance(uid, int) or subject != str(uid):
+            raise credentials_exception
+        stmt = select(UserModel).where(UserModel.id == uid).limit(1)
+    else:
+        # Legacy token (subject = username), still in circulation for at most
+        # ACCESS_TOKEN_LIFETIME_MIN after the upgrade. Remove in the next release.
+        stmt = select(UserModel).where(UserModel.username == subject).limit(1)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
     if not user:
